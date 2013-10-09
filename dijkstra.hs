@@ -54,20 +54,30 @@ initNeighbors edges = recur M.empty edges
 -- на входе результаты выполнения двух пердыдущих функций и целевая вершина
 -- на выходе МожетБыть пара (стоимость перехода, путь от начальной вершины до целевой)
 dijkstra :: (Ord v, RealFloat n) => M.Map v (M.Map v n) -> [(n, v, [v])] -> v -> Maybe (n, [v])               
-dijkstra neighbors unvisited goalVertex = recur unvisited
-  where recur [] = Nothing 
-        recur ((currDistance, currVertex, currPath) : restUnvisited)
+dijkstra _ [] _ = Nothing
+dijkstra neighbors (firstUnvisited : restUnvisited) goalVertex = recur (removeMin firstUnvisited restUnvisited)
+  where removeMin currMin [] = (currMin, [])
+        removeMin currMin (curr : others) = 
+          let newMin = min currMin curr
+              notMin = max currMin curr
+              (foundMin, othersNotMin) = removeMin newMin others
+          in (foundMin, notMin : othersNotMin)
+        recur ((currDistance, currVertex, currPath), unvisited)
           | currDistance == 1/0      = Nothing
           | currVertex == goalVertex = Just (currDistance, reverse (currVertex : currPath))
-          | otherwise                = recur (sort (map recalcDistance restUnvisited))
-                                         where currNeighbors = M.findWithDefault M.empty currVertex neighbors
-                                               recalcDistance orig@(estDistance, vertex, _) = 
-                                                 case M.lookup vertex currNeighbors of
-                                                   Nothing -> orig
-                                                   Just neighDistance 
-                                                     | altDistance >= estDistance -> orig
-                                                     | otherwise                  -> (altDistance, vertex, currVertex : currPath)
-                                                         where altDistance = currDistance + neighDistance
+          | otherwise                = 
+              case unvisited of 
+                [] -> Nothing
+                firstUnvisited : restUnvisited ->
+                  recur (removeMin (recalcDistance firstUnvisited) (map recalcDistance restUnvisited))
+                    where currNeighbors = M.findWithDefault M.empty currVertex neighbors
+                          recalcDistance orig@(estDistance, vertex, _) = 
+                            case M.lookup vertex currNeighbors of
+                              Nothing -> orig
+                              Just neighDistance 
+                                | altDistance >= estDistance -> orig
+                                | otherwise                  -> (altDistance, vertex, currVertex : currPath)
+                                    where altDistance = currDistance + neighDistance
 
 -- выводим в консоль результат работы алгоритма 
 main = (putStrLn . show) (dijkstra (initNeighbors edges) (initDistances initVertex edges) goalVertex)
